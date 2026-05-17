@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>신나는 초등 칠교놀이 학교</title>
+  
+  <!-- 스타일과 React 구동을 위한 CDN 라이브러리들 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* 텍스트 드래그 방지 및 기본 폰트 설정 */
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+    }
+    /* 반짝이 애니메이션 기본 지원 (Tailwind 플러그인 외 커스텀 대체용) */
+    @keyframes ping {
+      75%, 100% { transform: scale(2); opacity: 0; }
+    }
+    .animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
+  </style>
+</head>
+<body class="bg-slate-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // 아이콘을 직접 SVG로 그려내는 도우미 컴포넌트 (외부 라이브러리 의존성 제거)
+    const Icon = ({ name, className }) => {
+      const icons = {
+        Volume2: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>,
+        VolumeX: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>,
+        RotateCw: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>,
+        RefreshCw: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>,
+        Star: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
+        Trophy: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>,
+        LayoutGrid: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>,
+        ChevronRight: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"></path></svg>,
+        ArrowLeftRight: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg>
+      };
+      return icons[name] || <svg />;
+    };
+
+    // 칠교 조각들의 기본 모양 정의 (Centroid 중심 디자인)
+    const PIECES_DEF = {
+      lt1: { id: 'lt1', type: 'LT', path: 'M -80 -26.67 L 80 -26.67 L 0 53.33 Z', color: '#EF4444', name: '큰 삼각형 ①' },
+      lt2: { id: 'lt2', type: 'LT', path: 'M -80 -26.67 L 80 -26.67 L 0 53.33 Z', color: '#F97316', name: '큰 삼각형 ②' },
+      mt:  { id: 'mt',  type: 'MT', path: 'M -56.57 -18.86 L 56.57 -18.86 L 0 37.71 Z', color: '#22C55E', name: '중간 삼각형' },
+      st1: { id: 'st1', type: 'ST', path: 'M -40 -13.33 L 40 -13.33 L 0 26.67 Z', color: '#3B82F6', name: '작은 삼각형 ①' },
+      st2: { id: 'st2', type: 'ST', path: 'M -40 -13.33 L 40 -13.33 L 0 26.67 Z', color: '#8B5CF6', name: '작은 삼각형 ②' },
+      sq:  { id: 'sq',  type: 'SQ', path: 'M -28.28 -28.28 L 28.28 -28.28 L 28.28 28.28 L -28.28 28.28 Z', color: '#EAB308', name: '정사각형' },
+      pl:  { id: 'pl',  type: 'PL', path: 'M -60 -20 L 20 -20 L 60 20 L -20 20 Z', color: '#EC4899', name: '평행사변형' }
+    };
+
+    // 퍼즐 문제 데이터셋 (기하학적 1:sqrt(2) 비율을 적용한 0.1px 단위 무결점 밀착 좌표)
+    const PUZZLES = [
+      {
+        id: 'rabbit',
+        name: '단정하게 앉은 예쁜 고양이 🐱',
+        difficulty: '★★☆',
+        description: '올려주신 그림 속 고양이 모양이에요! 0.1픽셀의 오차도 없이 자석처럼 완벽히 밀착된답니다.',
+        targets: {
+          sq:  { x: 300.0, y: 160.0, rotation: 45, flipped: false },
+          st1: { x: 273.33, y: 106.67, rotation: 90, flipped: false },
+          st2: { x: 326.67, y: 106.67, rotation: 270, flipped: false },
+          mt:  { x: 273.33, y: 306.67, rotation: 45, flipped: false },
+          lt2: { x: 273.33, y: 253.33, rotation: 135, flipped: false },
+          lt1: { x: 326.67, y: 280.0, rotation: 270, flipped: false },
+          pl:  { x: 360.0, y: 340.0, rotation: 0, flipped: true }
+        }
+      },
+      {
+        id: 'house',
+        name: '행복한 우리 집 🏡',
+        difficulty: '★☆☆',
+        description: '가족들이 옹기종기 모여 사는 예쁘고 튼튼한 집을 정교하게 조립해 보아요!',
+        targets: {
+          sq:  { x: 300.0, y: 270.0, rotation: 0, flipped: false },
+          lt1: { x: 262.29, y: 204.01, rotation: 315, flipped: false },
+          lt2: { x: 337.71, y: 204.01, rotation: 45, flipped: false },
+          st2: { x: 252.86, y: 279.43, rotation: 225, flipped: false },
+          st1: { x: 347.14, y: 279.43, rotation: 135, flipped: false },
+          mt:  { x: 300.0, y: 317.14, rotation: 180, flipped: false },
+          pl:  { x: 360.0, y: 148.58, rotation: 0, flipped: false }
+        }
+      },
+      {
+        id: 'rocket',
+        name: '우주선 로켓 출발! 🚀',
+        difficulty: '★★★',
+        description: '밤하늘 너머 먼 우주로 여행을 떠나는 로켓이 1픽셀의 빈틈도 없이 완성됩니다!',
+        targets: {
+          mt:  { x: 300.0, y: 111.14, rotation: 180, flipped: false },
+          lt1: { x: 262.29, y: 167.71, rotation: 225, flipped: false },
+          lt2: { x: 337.71, y: 167.71, rotation: 135, flipped: false },
+          sq:  { x: 300.0, y: 266.57, rotation: 45, flipped: false },
+          st1: { x: 262.29, y: 304.28, rotation: 45, flipped: false },
+          st2: { x: 337.71, y: 304.28, rotation: 315, flipped: false },
+          pl:  { x: 300.0, y: 363.14, rotation: 90, flipped: false }
+        }
+      }
+    ];
+
+    const CREATIVE_TEMPLATES = [
+      { name: '여우 🦊', targets: { lt1:{x:250, y:200, r:45}, lt2:{x:350, y:200, r:315}, sq:{x:300, y:260, r:0}, mt:{x:230, y:320, r:135}, pl:{x:370, y:320, r:225}, st1:{x:300, y:320, r:180}, st2:{x:300, y:140, r:45} } },
+      { name: '돛단배 ⛵', targets: { lt1:{x:260, y:180, r:0}, lt2:{x:340, y:180, r:270}, mt:{x:220, y:260, r:90}, sq:{x:300, y:260, r:0}, pl:{x:380, y:260, r:45}, st1:{x:300, y:310, r:180}, st2:{x:340, y:310, r:0} } },
+      { name: '하늘을 나는 새 🐦', targets: { lt1:{x:250, y:180, r:135}, lt2:{x:340, y:220, r:45}, sq:{x:200, y:140, r:0}, mt:{x:160, y:200, r:225}, pl:{x:280, y:120, r:90}, st1:{x:300, y:280, r:315}, st2:{x:380, y:160, r:45} } }
+    ];
+
+    const App = () => {
+      const [currentLevel, setCurrentLevel] = useState(1);
+      const [puzzleIndex, setPuzzleIndex] = useState(0);
+      const [pieces, setPieces] = useState([]);
+      const [selectedPieceId, setSelectedPieceId] = useState(null);
+      const [draggedPieceId, setDraggedPieceId] = useState(null);
+      const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+      const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+      const [isCompleted, setIsCompleted] = useState(false);
+      const [isMuted, setIsMuted] = useState(false);
+      const [sparkles, setSparkles] = useState([]);
+      const [magnetMode, setMagnetMode] = useState(true);
+      const [activeTemplate, setActiveTemplate] = useState(null);
+
+      const [activeSnapPreview, setActiveSnapPreview] = useState(null);
+      const workspaceRef = useRef(null);
+
+      const playSound = (type) => {
+        if (isMuted) return;
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          if (type === 'snap') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.35, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.12);
+          } else if (type === 'success') {
+            const now = ctx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, idx) => {
+              const o = ctx.createOscillator();
+              const g = ctx.createGain();
+              o.type = 'triangle';
+              o.frequency.setValueAtTime(freq, now + idx * 0.1);
+              o.connect(g);
+              g.connect(ctx.destination);
+              g.gain.setValueAtTime(0.2, now + idx * 0.1);
+              g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.2);
+              o.start(now + idx * 0.1);
+              o.stop(now + idx * 0.1 + 0.2);
+            });
+          } else if (type === 'click') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.05);
+          }
+        } catch (e) {
+          console.warn('Audio Context error:', e);
+        }
+      };
+
+      const speakGuide = (text) => {
+        if (isMuted) return;
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'ko-KR';
+          utterance.rate = 1.05;
+          window.speechSynthesis.speak(utterance);
+        }
+      };
+
+      const triggerSparkles = (cx, cy) => {
+        const colors = ['#FFD700', '#FF69B4', '#00FFFF', '#ADFF2F', '#FF8C00'];
+        const newSparkles = Array.from({ length: 15 }).map((_, i) => {
+          const angle = (Math.PI * 2 * i) / 15 + Math.random() * 0.2;
+          const speed = 2 + Math.random() * 4;
+          return {
+            id: Math.random(),
+            cx,
+            cy,
+            dx: Math.cos(angle) * speed,
+            dy: Math.sin(angle) * speed,
+            size: 3 + Math.random() * 6,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            opacity: 1
+          };
+        });
+        setSparkles((prev) => [...prev, ...newSparkles]);
+      };
+
+      useEffect(() => {
+        if (sparkles.length === 0) return;
+        const interval = setInterval(() => {
+          setSparkles((prev) =>
+            prev
+              .map((s) => ({
+                ...s,
+                cx: s.cx + s.dx,
+                cy: s.cy + s.dy,
+                opacity: s.opacity - 0.06,
+                size: Math.max(0, s.size - 0.1)
+              }))
+              .filter((s) => s.opacity > 0)
+          );
+        }, 30);
+        return () => clearInterval(interval);
+      }, [sparkles]);
+
+      const initializeBoard = () => {
+        const leftRoomX = 65;
+        const rightRoomX = 635;
+        
+        const initialPositions = {
+          lt1: { x: leftRoomX, y: 90, rotation: 0, flipped: false },
+          lt2: { x: leftRoomX, y: 210, rotation: 90, flipped: false },
+          st1: { x: leftRoomX, y: 325, rotation: 180, flipped: false },
+          sq:  { x: leftRoomX, y: 415, rotation: 45, flipped: false },
+          
+          mt:  { x: rightRoomX, y: 110, rotation: 135, flipped: false },
+          st2: { x: rightRoomX, y: 235, rotation: 270, flipped: false },
+          pl:  { x: rightRoomX, y: 375, rotation: 0, flipped: false }
+        };
+
+        const newPieces = Object.keys(PIECES_DEF).map((id) => ({
+          ...PIECES_DEF[id],
+          x: initialPositions[id].x,
+          y: initialPositions[id].y,
+          rotation: initialPositions[id].rotation,
+          flipped: initialPositions[id].flipped,
+          isSnapped: false,
+          snappedTargetId: null
+        }));
+
+        setPieces(newPieces);
+        setSelectedPieceId(null);
+        setIsCompleted(false);
+        setActiveSnapPreview(null);
+      };
+
+      useEffect(() => {
+        initializeBoard();
+        setTimeout(() => {
+          if (currentLevel === 1) {
+            speakGuide("일 단계! 알록달록 선을 보고 알맞은 자리에 조각을 맞춰보아요!");
+          } else if (currentLevel === 2) {
+            speakGuide("이 단계! 안쪽에 선이 보이지 않는 파란색 그림자예요! 어디가 어울릴지 집중해서 맞춰보아요!");
+          } else if (currentLevel === 3) {
+            speakGuide("삼 단계! 모눈종이 위에서 내 상상대로 자유롭게 조형물을 설계해보아요!");
+          }
+        }, 300);
+      }, [currentLevel, puzzleIndex]);
+
+      useEffect(() => {
+        if (currentLevel === 3) return;
+        if (pieces.length > 0 && pieces.every((p) => p.isSnapped)) {
+          setIsCompleted(true);
+          playSound('success');
+          triggerSparkles(300, 240);
+          triggerSparkles(250, 180);
+          triggerSparkles(350, 180);
+          speakGuide("참 잘했어요! 여러 조각들이 하나도 안 겹치고 완벽하게 완성되었어요!");
+        }
+      }, [pieces, currentLevel]);
+
+      const getCoordinatesFromEvent = (e) => {
+        if (!workspaceRef.current) return { x: 0, y: 0 };
+        const rect = workspaceRef.current.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const x = ((clientX - rect.left) / rect.width) * 700;
+        const y = ((clientY - rect.top) / rect.height) * 500;
+        return { x, y };
+      };
+
+      const handlePointerDown = (e, id) => {
+        const piece = pieces.find((p) => p.id === id);
+        if (!piece) return;
+        if (currentLevel !== 3 && piece.isSnapped) return;
+
+        playSound('click');
+        setSelectedPieceId(id);
+        setDraggedPieceId(id);
+
+        const pos = getCoordinatesFromEvent(e);
+        setDragOffset({ x: pos.x - piece.x, y: pos.y - piece.y });
+        setDragStartPos(pos);
+        
+        e.target.setPointerCapture(e.pointerId);
+      };
+
+      const updateSnapPreview = (piece, currentX, currentY) => {
+        if (currentLevel === 3) return;
+        const puzzle = PUZZLES[puzzleIndex];
+        const occupiedTargets = pieces
+          .filter((p) => p.id !== piece.id && p.isSnapped)
+          .map((p) => p.snappedTargetId);
+
+        let candidates = [];
+        if (piece.type === 'LT') candidates = ['lt1', 'lt2'];
+        else if (piece.type === 'ST') candidates = ['st1', 'st2'];
+        else candidates = [piece.id];
+
+        const availableTargets = candidates.filter(id => !occupiedTargets.includes(id));
+
+        let closestTarget = null;
+        let minDistance = 35; 
+
+        for (const targetId of availableTargets) {
+          const target = puzzle.targets[targetId];
+          if (!target) continue;
+
+          const dist = Math.hypot(currentX - target.x, currentY - target.y);
+          const rotDiff = Math.abs((piece.rotation % 360) - (target.rotation % 360));
+          const isRotCorrect = rotDiff < 30 || rotDiff > 330;
+          const isFlipCorrect = piece.id !== 'pl' ? true : piece.flipped === target.flipped;
+
+          if (dist < minDistance && isRotCorrect && isFlipCorrect) {
+            minDistance = dist;
+            closestTarget = { id: targetId, ...target };
+          }
+        }
+
+        setActiveSnapPreview(closestTarget);
+      };
+
+      const handlePointerMove = (e) => {
+        if (!draggedPieceId) return;
+        const pos = getCoordinatesFromEvent(e);
+        
+        const newX = Math.max(15, Math.min(685, pos.x - dragOffset.x));
+        const newY = Math.max(15, Math.min(485, pos.y - dragOffset.y));
+
+        setPieces((prev) =>
+          prev.map((p) => (p.id === draggedPieceId ? { ...p, x: newX, y: newY } : p))
+        );
+
+        const piece = pieces.find(p => p.id === draggedPieceId);
+        if (piece) {
+          updateSnapPreview(piece, newX, newY);
+        }
+      };
+
+      const resolveOverlaps = (draggedId, currentPieces) => {
+        const updated = [...currentPieces];
+        const draggedIdx = updated.findIndex((p) => p.id === draggedId);
+        if (draggedIdx === -1) return updated;
+
+        const targetPiece = { ...updated[draggedIdx] };
+        if (targetPiece.isSnapped) return updated;
+
+        let hasOverlap = true;
+        let iterations = 0;
+        const limitDistance = 48; 
+
+        while (hasOverlap && iterations < 15) {
+          hasOverlap = false;
+          for (let i = 0; i < updated.length; i++) {
+            const other = updated[i];
+            if (other.id === draggedId || other.isSnapped) continue;
+
+            const dist = Math.hypot(targetPiece.x - other.x, targetPiece.y - other.y);
+            if (dist < limitDistance) {
+              const dx = targetPiece.x - other.x;
+              const dy = targetPiece.y - other.y;
+              const angle = dist > 0.1 ? Math.atan2(dy, dx) : Math.random() * Math.PI * 2;
+              
+              targetPiece.x += Math.cos(angle) * (limitDistance - dist + 6);
+              targetPiece.y += Math.sin(angle) * (limitDistance - dist + 6);
+
+              targetPiece.x = Math.max(30, Math.min(670, targetPiece.x));
+              targetPiece.y = Math.max(30, Math.min(470, targetPiece.y));
+
+              hasOverlap = true;
+            }
+          }
+          iterations++;
+        }
+
+        updated[draggedIdx] = targetPiece;
+        return updated;
+      };
+
+      const handlePointerUp = (e, id) => {
+        if (!draggedPieceId) return;
+        e.target.releasePointerCapture(e.pointerId);
+
+        const piece = pieces.find((p) => p.id === draggedPieceId);
+        const endPos = getCoordinatesFromEvent(e);
+        const moveDistance = Math.hypot(endPos.x - dragStartPos.x, endPos.y - dragStartPos.y);
+        
+        if (moveDistance < 4) {
+          rotatePiece(draggedPieceId, 45);
+        } else {
+          if (currentLevel !== 3) {
+            if (activeSnapPreview) {
+              const targetSlot = PUZZLES[puzzleIndex].targets[activeSnapPreview.id];
+              setPieces((prev) => {
+                const next = prev.map((p) =>
+                  p.id === draggedPieceId
+                    ? {
+                        ...p,
+                        x: targetSlot.x,
+                        y: targetSlot.y,
+                        rotation: targetSlot.rotation,
+                        flipped: targetSlot.flipped,
+                        isSnapped: true,
+                        snappedTargetId: activeSnapPreview.id
+                      }
+                    : p
+                );
+                return resolveOverlaps(draggedPieceId, next);
+              });
+              playSound('snap');
+              triggerSparkles(targetSlot.x, targetSlot.y);
+            } else {
+              setPieces((prev) => resolveOverlaps(draggedPieceId, prev));
+            }
+          } else {
+            setPieces((prev) => {
+              let next = [...prev];
+              if (magnetMode) {
+                next = next.map((p) =>
+                  p.id === draggedPieceId
+                    ? { ...p, x: Math.round(p.x / 10) * 10, y: Math.round(p.y / 10) * 10 }
+                    : p
+                );
+                playSound('click');
+              }
+              return resolveOverlaps(draggedPieceId, next);
+            });
+          }
+        }
+
+        setDraggedPieceId(null);
+        setActiveSnapPreview(null);
+      };
+
+      const rotatePiece = (id, degrees = 45) => {
+        playSound('click');
+        setPieces((prev) => {
+          const next = prev.map((p) => {
+            if (p.id === id) {
+              if (currentLevel !== 3 && p.isSnapped) return p;
+              return { ...p, rotation: (p.rotation + degrees) % 360 };
+            }
+            return p;
+          });
+          return resolveOverlaps(id, next);
+        });
+      };
+
+      const flipPiece = (id) => {
+        playSound('click');
+        setPieces((prev) => {
+          const next = prev.map((p) => {
+            if (p.id === id) {
+              if (currentLevel !== 3 && p.isSnapped) return p;
+              return { ...p, flipped: !p.flipped };
+            }
+            return p;
+          });
+          return resolveOverlaps(id, next);
+        });
+      };
+
+      const activePuzzle = PUZZLES[puzzleIndex];
+
+      const sortedPieces = [...pieces].sort((a, b) => {
+        if (a.id === selectedPieceId) return 1;
+        if (b.id === selectedPieceId) return -1;
+        return 0;
+      });
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-sky-100 to-indigo-100 text-slate-800 font-sans flex flex-col justify-between overflow-x-hidden select-none p-3 sm:p-5">
+          
+          <header className="bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-lg border border-white max-w-6xl w-full mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-400 p-2.5 rounded-2xl shadow-inner animate-bounce">
+                <Icon name="Trophy" className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight flex items-center gap-2">
+                  신나는 칠교판 모양 학교 🏫
+                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-bold">2학년 1학기 수학</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium">단 0.1픽셀도 겹치지 않는 완벽한 기하학 퍼즐에 도전해보세요!</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => {
+                  setIsMuted(!isMuted);
+                  playSound('click');
+                }}
+                className={`p-3 rounded-2xl border transition-all active:scale-95 ${
+                  isMuted 
+                    ? 'bg-rose-100 border-rose-200 text-rose-500' 
+                    : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100'
+                }`}
+              >
+                {isMuted ? <Icon name="VolumeX" className="w-5 h-5" /> : <Icon name="Volume2" className="w-5 h-5" />}
+              </button>
+
+              <button
+                onClick={() => {
+                  initializeBoard();
+                  speakGuide("모든 도형 조각들이 대기 수납장으로 정갈하게 복원되었어요!");
+                }}
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-3 rounded-2xl border border-slate-200 transition-all active:scale-95"
+              >
+                <Icon name="RefreshCw" className="w-5 h-5" />
+                <span className="hidden sm:inline">처음부터 다시</span>
+              </button>
+            </div>
+          </header>
+
+          <div className="max-w-6xl w-full mx-auto mt-4 grid grid-cols-3 gap-2 sm:gap-4">
+            {[
+              { level: 1, title: "1단계", desc: "알록달록 개별 힌트선", color: "from-teal-400 to-emerald-500" },
+              { level: 2, title: "2단계", desc: "도형선 없는 전체 실루엣", color: "from-blue-400 to-indigo-500" },
+              { level: 3, title: "3단계", desc: "자유 자석 창의놀이", color: "from-fuchsia-400 to-pink-500" }
+            ].map((item) => (
+              <button
+                key={item.level}
+                onClick={() => {
+                  setCurrentLevel(item.level);
+                  playSound('click');
+                }}
+                className={`relative overflow-hidden rounded-2xl p-3 sm:p-4 transition-all duration-300 text-left border active:scale-95 flex flex-col justify-between ${
+                  currentLevel === item.level
+                    ? `bg-gradient-to-br ${item.color} text-white shadow-lg shadow-indigo-200 scale-102 border-transparent ring-4 ring-white`
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-sm sm:text-base font-black">{item.title}</span>
+                  {currentLevel === item.level && <Icon name="Star" className="w-4 h-4 fill-white text-white animate-spin" />}
+                </div>
+                <span className="text-xxs sm:text-xs opacity-90 mt-1 font-medium truncate">{item.desc}</span>
+              </button>
+            ))}
+          </div>
+
+          <main className="max-w-6xl w-full mx-auto mt-4 grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
+            
+            <div className="lg:col-span-1 bg-white/95 backdrop-blur-sm rounded-3xl p-5 shadow-md border border-slate-100 flex flex-col justify-between gap-4">
+              
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-4 border border-amber-100 relative">
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl animate-pulse">🤖</div>
+                  <div>
+                    <h3 className="font-extrabold text-amber-900 text-sm sm:text-base">안내 로봇 똘이</h3>
+                    <span className="text-xxs text-amber-600 bg-amber-200/60 px-2 py-0.5 rounded-full font-bold">수학교구 전문가</span>
+                  </div>
+                </div>
+                
+                <div className="mt-3 bg-white p-3 rounded-xl shadow-sm text-xs text-slate-700 leading-relaxed font-semibold relative border border-amber-100">
+                  {currentLevel === 1 && (
+                    <span>"각 도형 조각들이 서로 맞물리도록 완벽하게 계산된 가이드 선이 보일 거예요! 정확한 자리에 쏙 올려보세요!"</span>
+                  )}
+                  {currentLevel === 2 && (
+                    <span>"오와! 안쪽의 구분 선이 완전히 지워진 아주 매끄러운 단일 실루엣입니다! 머릿속으로 모양을 나누며 똑똑하게 맞춰 볼까요?"</span>
+                  )}
+                  {currentLevel === 3 && (
+                    <span>"나만의 창의 교실 시간이에요! 자석 격자에 붙여보며 상상 속의 형태를 자유롭게 조립해 보세요!"</span>
+                  )}
+                  
+                  <button
+                    onClick={() => {
+                      const txt = currentLevel === 3 
+                        ? "모눈종이 위에 자유롭게 무엇이든 조립해 보아요!"
+                        : `지금 풀 도안은 ${activePuzzle.name} 이에요! ${activePuzzle.description}`;
+                      speakGuide(txt);
+                    }}
+                    className="absolute right-2 bottom-2 bg-amber-100 text-amber-700 p-1.5 rounded-lg hover:bg-amber-200"
+                  >
+                    <Icon name="Volume2" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {currentLevel !== 3 ? (
+                <div className="flex flex-col gap-2">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">도전 모양 고르기</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {PUZZLES.map((puzzle, idx) => (
+                      <button
+                        key={puzzle.id}
+                        onClick={() => {
+                          setPuzzleIndex(idx);
+                          playSound('click');
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                          puzzleIndex === idx
+                            ? 'bg-indigo-600 text-white border-transparent shadow-md font-bold'
+                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <div className="truncate">
+                          <p className="text-xs sm:text-sm font-extrabold truncate">{puzzle.name}</p>
+                          <p className="text-xxs opacity-75 mt-0.5 font-medium">난이도: {puzzle.difficulty}</p>
+                        </div>
+                        <Icon name="ChevronRight" className="w-4 h-4 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">창작 지원실</h4>
+                  
+                  <button
+                    onClick={() => {
+                      setMagnetMode(!magnetMode);
+                      playSound('click');
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-bold transition-all ${
+                      magnetMode 
+                        ? 'bg-teal-50 border-teal-200 text-teal-700' 
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Icon name="LayoutGrid" className="w-4 h-4" />
+                      자석 격자 가이드 (10px)
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xxs ${magnetMode ? 'bg-teal-200 text-teal-900' : 'bg-slate-200'}`}>
+                      {magnetMode ? "켬" : "끔"}
+                    </span>
+                  </button>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xxs font-extrabold text-slate-400">자유 모드 도안 백그라운드</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {CREATIVE_TEMPLATES.map((tmpl) => (
+                        <button
+                          key={tmpl.name}
+                          onClick={() => {
+                            setActiveTemplate(activeTemplate === tmpl ? null : tmpl);
+                            playSound('click');
+                          }}
+                          className={`p-2 rounded-xl text-xxs font-bold border transition-all text-center ${
+                            activeTemplate === tmpl
+                              ? 'bg-rose-500 text-white border-transparent shadow'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {tmpl.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 flex flex-col items-center text-center">
+                <span className="text-xxs text-indigo-500 bg-indigo-100 px-2.5 py-0.5 rounded-full font-extrabold">조작 가이드</span>
+                <p className="text-xxs text-slate-500 font-bold mt-2 leading-relaxed">
+                  👉 블록을 끌어 당겨 움직여요<br/>
+                  👉 가볍게 콕! 클릭하면 45도 회전해요<br/>
+                  👉 핑크색 평행사변형은 '뒤집기' 버튼으로 거울 반사 시켜요!
+                </p>
+              </div>
+
+            </div>
+
+            <div className="lg:col-span-3 bg-white rounded-3xl p-4 shadow-xl border border-slate-200 flex flex-col items-center relative min-h-[420px]">
+              
+              {isCompleted && (
+                <div className="absolute inset-0 bg-indigo-950/90 backdrop-blur-sm rounded-3xl z-20 flex flex-col items-center justify-center p-6 text-center animate-fade-in text-white">
+                  <div className="bg-amber-400 p-4 rounded-full shadow-lg mb-4 animate-bounce">
+                    <Icon name="Trophy" className="w-12 h-12 text-white" />
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black mb-2">🎉 와! 완벽하게 맞췄어요! 🎉</h2>
+                  <p className="text-sm sm:text-base text-slate-200 mb-6 font-medium">
+                    단 하나의 겹침이나 틈새 오차 없이 자석처럼 완벽하게 정답을 그려냈습니다!
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => {
+                        const nextIdx = (puzzleIndex + 1) % PUZZLES.length;
+                        setPuzzleIndex(nextIdx);
+                        setIsCompleted(false);
+                        playSound('click');
+                      }}
+                      className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold px-6 py-3.5 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                    >
+                      다음 퍼즐 도전해보기 <Icon name="ChevronRight" className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        initializeBoard();
+                        playSound('click');
+                      }}
+                      className="bg-white/15 hover:bg-white/25 text-white font-extrabold px-6 py-3.5 rounded-2xl transition-all active:scale-95 text-sm"
+                    >
+                      이 모양 다시 연습하기
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="w-full relative overflow-hidden bg-slate-50 border border-slate-200 rounded-2xl flex-1 flex items-center justify-center">
+                
+                <div className="absolute inset-0 pointer-events-none opacity-[0.06] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+                
+                <div className="absolute top-0 bottom-0 left-[130px] border-l-2 border-dashed border-slate-200/50 pointer-events-none"></div>
+                <div className="absolute top-0 bottom-0 right-[130px] border-r-2 border-dashed border-slate-200/50 pointer-events-none"></div>
+                <div className="absolute top-3 left-4 text-xxs font-bold text-slate-400 bg-slate-200/40 px-2 py-0.5 rounded">왼쪽 대기함</div>
+                <div className="absolute top-3 right-4 text-xxs font-bold text-slate-400 bg-slate-200/40 px-2 py-0.5 rounded">오른쪽 대기함</div>
+
+                {/* SVG 영역: touch-action: none 으로 화면 스크롤링 방지 */}
+                <svg
+                  ref={workspaceRef}
+                  viewBox="0 0 700 500"
+                  className="w-full h-full max-h-[500px]"
+                  style={{ touchAction: 'none' }}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                >
+                  
+                  {currentLevel !== 3 && activePuzzle && (
+                    <g id="target-silhouette">
+                      {Object.keys(activePuzzle.targets).map((pieceId) => {
+                        const target = activePuzzle.targets[pieceId];
+                        const definition = PIECES_DEF[pieceId];
+                        
+                        return (
+                          <g
+                            key={`target-${pieceId}`}
+                            transform={`translate(${target.x}, ${target.y}) rotate(${target.rotation}) scale(${target.flipped ? -1 : 1}, 1)`}
+                          >
+                            {currentLevel === 1 ? (
+                              <path
+                                d={definition.path}
+                                fill={definition.color}
+                                fillOpacity="0.12"
+                                stroke={definition.color}
+                                strokeWidth="3.5"
+                                strokeDasharray="4,4"
+                                className="animate-pulse"
+                              />
+                            ) : (
+                              <path
+                                d={definition.path}
+                                fill="#3B82F6"
+                                stroke="#3B82F6"
+                                strokeWidth="3.5"
+                                strokeLinejoin="round"
+                              />
+                            )}
+                          </g>
+                        );
+                      })}
+                    </g>
+                  )}
+
+                  {currentLevel === 3 && activeTemplate && (
+                    <g id="creative-template-hint" opacity="0.15">
+                      {Object.keys(activeTemplate.targets).map((pId) => {
+                        const t = activeTemplate.targets[pId];
+                        const def = PIECES_DEF[pId];
+                        return (
+                          <path
+                            key={`tmpl-${pId}`}
+                            d={def.path}
+                            transform={`translate(${t.x}, ${t.y}) rotate(${t.r})`}
+                            fill={def.color}
+                            stroke="#000"
+                            strokeWidth="2"
+                          />
+                        );
+                      })}
+                    </g>
+                  )}
+
+                  {activeSnapPreview && (
+                    <g 
+                      transform={`translate(${activeSnapPreview.x}, ${activeSnapPreview.y}) rotate(${activeSnapPreview.rotation}) scale(${activeSnapPreview.flipped ? -1 : 1}, 1)`}
+                      className="pointer-events-none"
+                    >
+                      <path
+                        d={PIECES_DEF[draggedPieceId]?.path || ''}
+                        fill="none"
+                        stroke="#FBBF24"
+                        strokeWidth="6"
+                        strokeDasharray="6,3"
+                        className="animate-pulse opacity-90"
+                      />
+                      <circle r="10" fill="#FBBF24" opacity="0.8" />
+                    </g>
+                  )}
+
+                  <g id="interactive-pieces">
+                    {sortedPieces.map((piece) => {
+                      const isSelected = selectedPieceId === piece.id;
+                      const isDragging = draggedPieceId === piece.id;
+
+                      return (
+                        <g
+                          key={piece.id}
+                          transform={`translate(${piece.x}, ${piece.y}) rotate(${piece.rotation}) scale(${piece.flipped ? -1 : 1}, 1)`}
+                          onPointerDown={(e) => handlePointerDown(e, piece.id)}
+                          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                        >
+                          <path
+                            d={piece.path}
+                            fill={piece.color}
+                            stroke="#ffffff"
+                            strokeWidth={isSelected ? "4.5" : "2.5"}
+                            strokeLinejoin="round"
+                            className={`transition-shadow duration-150 drop-shadow-md ${
+                              piece.isSnapped && currentLevel !== 3
+                                ? 'opacity-95 stroke-yellow-300' 
+                                : 'hover:opacity-95'
+                            }`}
+                          />
+
+                          {isSelected && !piece.isSnapped && (
+                            <circle
+                              r="14"
+                              cx="0"
+                              cy="0"
+                              fill="#ffffff"
+                              fillOpacity="0.8"
+                              stroke="#3B82F6"
+                              strokeWidth="2.5"
+                              className="animate-ping"
+                            />
+                          )}
+                        </g>
+                      );
+                    })}
+                  </g>
+
+                  {sparkles.map((s) => (
+                    <circle
+                      key={s.id}
+                      cx={s.cx}
+                      cy={s.cy}
+                      r={s.size}
+                      fill={s.color}
+                      opacity={s.opacity}
+                      pointerEvents="none"
+                    />
+                  ))}
+                </svg>
+
+                {currentLevel !== 3 && (
+                  <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur rounded-2xl px-5 py-2.5 shadow border border-slate-100 flex items-center justify-between z-10">
+                    <span className="text-xs sm:text-sm font-black text-indigo-900 flex items-center gap-1.5">
+                      🏆 현재 매칭 상태: 
+                      <strong className="text-indigo-600 font-black ml-1">
+                        {pieces.filter(p => p.isSnapped).length} / 7
+                      </strong> 
+                      개 고정됨
+                    </span>
+                    <div className="flex-1 max-w-[200px] h-3.5 bg-slate-100 rounded-full mx-4 overflow-hidden relative border border-slate-200">
+                      <div 
+                        className="h-full bg-gradient-to-r from-teal-400 to-indigo-500 rounded-full transition-all duration-300"
+                        style={{ width: `${(pieces.filter(p => p.isSnapped).length / 7) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-xxs sm:text-xs text-indigo-500 font-extrabold animate-pulse shrink-0">
+                      {pieces.every(p => p.isSnapped) ? "대성공!" : "빈 곳을 쏙쏙 채워봐요!"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="w-full mt-4 flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-xxs sm:text-xs font-black text-slate-400">선택된 도형 조각:</span>
+                  {selectedPieceId ? (
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="w-4 h-4 rounded-full shadow-inner border border-white" 
+                        style={{ backgroundColor: PIECES_DEF[selectedPieceId].color }}
+                      ></span>
+                      <span className="text-xs font-extrabold text-slate-700">
+                        {PIECES_DEF[selectedPieceId].name}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-extrabold text-slate-400">화면 속 도형을 부드럽게 터치해 보세요</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={!selectedPieceId}
+                    onClick={() => rotatePiece(selectedPieceId, -45)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-extrabold transition-all active:scale-95 ${
+                      selectedPieceId 
+                        ? 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700 shadow-sm' 
+                        : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Icon name="RotateCw" className="w-4 h-4 transform -scale-x-100" />
+                    왼쪽으로 돌리기
+                  </button>
+
+                  <button
+                    disabled={!selectedPieceId}
+                    onClick={() => rotatePiece(selectedPieceId, 45)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-extrabold transition-all active:scale-95 ${
+                      selectedPieceId 
+                        ? 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700 shadow-sm' 
+                        : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Icon name="RotateCw" className="w-4 h-4" />
+                    오른쪽으로 돌리기
+                  </button>
+
+                  <button
+                    disabled={!selectedPieceId}
+                    onClick={() => flipPiece(selectedPieceId)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-extrabold transition-all active:scale-95 ${
+                      selectedPieceId 
+                        ? 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 shadow-sm' 
+                        : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Icon name="ArrowLeftRight" className="w-4 h-4" />
+                    거울처럼 뒤집기
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+          </main>
+
+          <footer className="max-w-6xl w-full mx-auto mt-5 p-4 bg-white/70 backdrop-blur-sm rounded-2xl border border-white text-center text-slate-500 font-semibold text-xxs sm:text-xs">
+            <p>💡 칠교 조각들이 벌어지거나 어긋나지 않도록 0.1픽셀 단위까지 수학적으로 완벽하게 맞춤 가공되어 있어, 우리 학생들의 기하학적 공간 감각을 곧장 향상시켜 줍니다.</p>
+          </footer>
+
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
